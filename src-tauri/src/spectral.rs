@@ -35,7 +35,6 @@ pub fn generate_primes(limit: usize) -> Vec<u64> {
     if limit < 2 {
         return vec![];
     }
-    // مصفوفة منطقية: true = لا يزال مرشحاً للأولية
     let mut is_prime = vec![true; limit + 1];
     is_prime[0] = false;
     is_prime[1] = false;
@@ -43,7 +42,6 @@ pub fn generate_primes(limit: usize) -> Vec<u64> {
     let mut i = 2usize;
     while i * i <= limit {
         if is_prime[i] {
-            // شطب جميع مضاعفات i
             let mut j = i * i;
             while j <= limit {
                 is_prime[j] = false;
@@ -53,7 +51,6 @@ pub fn generate_primes(limit: usize) -> Vec<u64> {
         i += 1;
     }
 
-    // جمع الأعداد الأولية في قائمة
     (2..=limit)
         .filter(|&n| is_prime[n])
         .map(|n| n as u64)
@@ -86,17 +83,13 @@ pub fn prime_to_char(p: u64) -> Option<char> {
 /// = g * log(p) * p^(-0.5) * (cos(γ·log p) - i·sin(γ·log p))
 /// يُعيد (الجزء الحقيقي، الجزء التخيلي)
 pub fn spectral_element(p: u64, gamma: f64, g: f64) -> (f64, f64) {
-    let lnp = (p as f64).ln(); // log(p) الطبيعي
-    let amplitude = g * lnp * (p as f64).powf(-0.5); // g·log(p)·p^(-½)
-    let phase = gamma * lnp; // γ·log(p)
+    let lnp = (p as f64).ln();
+    let amplitude = g * lnp * (p as f64).powf(-0.5);
+    let phase = gamma * lnp;
 
-    // p^(i*γ) = e^(i*γ*log p) = cos(γ·log p) + i·sin(γ·log p)
-    // p^-(0.5 + i*γ) = p^(-0.5) · (cos - i·sin)
     let re = amplitude * phase.cos();
-    let im = -amplitude * phase.sin(); // الإشارة السالبة من p^(-iγ)
-
-    // نضيف h.c. (المرافق الهرميتي): نضاعف الجزء الحقيقي
-    (2.0 * re, 0.0) // بعد الجمع مع h.c.، الجزء التخيلي يلغي نفسه
+    // بعد الجمع مع h.c.، الجزء التخيلي يلغي نفسه
+    (2.0 * re, 0.0)
 }
 
 /// يحسب قوة الرنين لعدد أولي عبر جميع أصفار زيتا:
@@ -108,17 +101,13 @@ pub fn resonance(p: u64, gamma_list: &[f64], g: f64) -> f64 {
     let lnp = (p as f64).ln();
     let amplitude = g * lnp * (p as f64).powf(-0.5);
 
-    // مقدار V(p, γ) = |g * log(p) * p^(-0.5 - i*γ)|
-    // = |g * log(p) * p^(-0.5)| * |p^(-i*γ)|
-    // وبما أن |e^(iθ)| = 1، إذن المقدار = amplitude لكل الأصفار
-    // لكن نحسب التأثير التراكمي مع اختلاف الطور
     let total: f64 = gamma_list
         .iter()
         .map(|&gamma| {
             let phase = gamma * lnp;
             let re = amplitude * phase.cos();
             let im = -amplitude * phase.sin();
-            (re * re + im * im).sqrt() // المقدار لكل صفر
+            (re * re + im * im).sqrt()
         })
         .sum();
 
@@ -165,7 +154,7 @@ pub fn spectral_pipeline(
     // ── الخطوة 1: نص → أعداد أولية ─────────────────────────────────────────
     let input_primes: Vec<u64> = text
         .chars()
-        .filter_map(|c| char_to_prime(c))
+        .filter_map(char_to_prime)
         .collect();
 
     if input_primes.is_empty() {
@@ -188,7 +177,6 @@ pub fn spectral_pipeline(
         .collect();
 
     // ── الخطوة 3: تحديد العتبة والاستنتاج ──────────────────────────────────
-    // العتبة = متوسط الرنين (تكيفية)
     let mean_resonance = if resonance_strengths.is_empty() {
         0.0
     } else {
@@ -200,7 +188,6 @@ pub fn spectral_pipeline(
         .cloned()
         .fold(f64::NEG_INFINITY, f64::max);
 
-    // الأعداد الأولية المستنتجة: التي تجاوزت متوسط الرنين
     let inferred_primes: Vec<u64> = input_primes
         .iter()
         .zip(resonance_strengths.iter())
@@ -231,12 +218,10 @@ pub fn spectral_pipeline(
 /// يُضيف أصفاراً جديدة إلى قائمة موجودة (يتجنب التكرار)
 pub fn expand_zeros(current: &mut Vec<f64>, new_zeros: Vec<f64>) {
     for z in new_zeros {
-        // أضف فقط إذا لم يكن موجوداً (بهامش 0.001)
         if !current.iter().any(|&existing| (existing - z).abs() < 0.001) {
             current.push(z);
         }
     }
-    // رتّب تصاعدياً
     current.sort_by(|a, b| a.partial_cmp(b).unwrap());
 }
 
@@ -253,41 +238,36 @@ mod tests {
 
     #[test]
     fn test_generate_primes_basic() {
-        // اختبار توليد الأعداد الأولية الأساسية
         let primes = generate_primes(30);
         assert_eq!(primes, vec![2, 3, 5, 7, 11, 13, 17, 19, 23, 29]);
     }
 
     #[test]
     fn test_generate_primes_empty() {
-        // الحد الأدنى 1 يجب أن يُعيد قائمة فارغة
         let primes = generate_primes(1);
         assert!(primes.is_empty());
     }
 
     #[test]
     fn test_char_to_prime() {
-        // اختبار تحويل الحروف
         assert_eq!(char_to_prime('a'), Some(2));
         assert_eq!(char_to_prime('e'), Some(11));
         assert_eq!(char_to_prime('z'), Some(101));
         assert_eq!(char_to_prime(' '), Some(103));
-        assert_eq!(char_to_prime('A'), Some(2)); // حساس للحالة الكبيرة
-        assert_eq!(char_to_prime('0'), None);    // رقم غير موجود
+        assert_eq!(char_to_prime('A'), Some(2));
+        assert_eq!(char_to_prime('0'), None);
     }
 
     #[test]
     fn test_prime_to_char() {
-        // اختبار التحويل العكسي
         assert_eq!(prime_to_char(2), Some('a'));
         assert_eq!(prime_to_char(11), Some('e'));
         assert_eq!(prime_to_char(103), Some(' '));
-        assert_eq!(prime_to_char(999), None); // غير موجود
+        assert_eq!(prime_to_char(999), None);
     }
 
     #[test]
     fn test_spectral_element_finite() {
-        // يجب أن تكون النتيجة منتهية (ليست NaN أو Infinity)
         let (re, im) = spectral_element(2, 14.134725, DEFAULT_G);
         assert!(re.is_finite(), "الجزء الحقيقي يجب أن يكون منتهياً");
         assert!(im.is_finite(), "الجزء التخيلي يجب أن يكون منتهياً");
@@ -295,21 +275,19 @@ mod tests {
 
     #[test]
     fn test_resonance_positive() {
-        // الرنين يجب أن يكون موجباً دائماً
         let zeros: Vec<f64> = ZETA_ZEROS_DEFAULT.to_vec();
-        let r = resonance(11, &zeros, DEFAULT_G); // e = 11
+        let r = resonance(11, &zeros, DEFAULT_G);
         assert!(r >= 0.0, "الرنين يجب أن يكون غير سالب");
         assert!(r.is_finite(), "الرنين يجب أن يكون منتهياً");
     }
 
     #[test]
     fn test_pipeline_hello() {
-        // اختبار المسار الكامل على كلمة "hello"
         let zeros: Vec<f64> = ZETA_ZEROS_DEFAULT.to_vec();
         let result = spectral_pipeline("hello", &zeros, DEFAULT_G);
 
         assert_eq!(result.input_text, "hello");
-        assert_eq!(result.input_primes.len(), 5); // h=19, e=11, l=37, l=37, o=47
+        assert_eq!(result.input_primes.len(), 5);
         assert_eq!(result.zeros_used, 30);
         assert!(!result.output_text.is_empty(), "يجب أن يكون هناك نص ناتج");
         assert!(result.max_resonance >= 0.0);
@@ -317,7 +295,6 @@ mod tests {
 
     #[test]
     fn test_pipeline_empty() {
-        // مدخل فارغ يجب أن يُعيد نتيجة فارغة
         let zeros: Vec<f64> = ZETA_ZEROS_DEFAULT.to_vec();
         let result = spectral_pipeline("", &zeros, DEFAULT_G);
         assert!(result.input_primes.is_empty());
@@ -326,18 +303,16 @@ mod tests {
 
     #[test]
     fn test_expand_zeros() {
-        // اختبار توسيع الأصفار
         let mut zeros = vec![14.134725, 21.022040];
-        expand_zeros(&mut zeros, vec![25.010858, 14.134725]); // التكرار يُتجاهل
+        expand_zeros(&mut zeros, vec![25.010858, 14.134725]);
         assert_eq!(zeros.len(), 3);
         assert!((zeros[2] - 25.010858).abs() < 0.001);
     }
 
     #[test]
     fn test_expand_primes() {
-        // اختبار توسيع الأعداد الأولية
         let primes = expand_primes(50);
         assert!(primes.contains(&47));
         assert!(!primes.contains(&48));
     }
-  }
+    }
