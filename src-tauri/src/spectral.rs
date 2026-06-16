@@ -82,6 +82,7 @@ pub fn prime_to_char(p: u64) -> Option<char> {
 /// V(p, γ) = g * log(p) / p^(0.5 + i*γ)
 /// = g * log(p) * p^(-0.5) * (cos(γ·log p) - i·sin(γ·log p))
 /// يُعيد (الجزء الحقيقي، الجزء التخيلي)
+#[allow(dead_code)]
 pub fn spectral_element(p: u64, gamma: f64, g: f64) -> (f64, f64) {
     let lnp = (p as f64).ln();
     let amplitude = g * lnp * (p as f64).powf(-0.5);
@@ -315,4 +316,4 @@ mod tests {
         assert!(primes.contains(&47));
         assert!(!primes.contains(&48));
     }
-    }
+}
