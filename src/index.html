@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <meta name="theme-color" content="#0a0a0a" />
+  <title>PrimeMind</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+  <!-- ── الرأس ── -->
+  <header class="header">
+    <div class="logo-wrap">
+      <span class="logo-symbol">Ĥ</span>
+      <div>
+        <div class="logo-title">PrimeMind</div>
+        <div class="logo-sub">محرك الاستدلال الطيفي · V3.7</div>
+      </div>
+    </div>
+    <div class="engine-badge" id="engineBadge">
+      <span id="zerosCount">30</span> صفر · <span id="gValue">10⁻⁶</span>
+    </div>
+  </header>
+
+  <!-- ── شريط المعادلة ── -->
+  <div class="formula-strip">
+    Ĥ = Σ γ<sub>n</sub>|n⟩⟨n| + g Σ (log p) / p<sup>½+iγ̂</sup> |p⟩⟨γ̂| + h.c.
+  </div>
+
+  <main class="main">
+
+    <!-- ── الإدخال ── -->
+    <section class="card">
+      <label class="card-label">النص المُدخَل</label>
+      <textarea
+        id="inputText"
+        class="input-field"
+        placeholder="اكتب نصاً... (أحرف، مسافات، نقاط، فواصل)"
+        maxlength="1000"
+        rows="4"
+        spellcheck="false"
+        dir="ltr"
+      ></textarea>
+      <div class="row-between">
+        <span class="char-count"><span id="charCount">0</span>/1000</span>
+        <div class="g-control">
+          <label class="small-label">قيمة g:</label>
+          <select id="gSelect" class="g-select">
+            <option value="1e-6" selected>10⁻⁶ (افتراضي)</option>
+            <option value="1e-5">10⁻⁵</option>
+            <option value="1e-7">10⁻⁷</option>
+            <option value="1e-4">10⁻⁴</option>
+          </select>
+        </div>
+      </div>
+      <button class="btn-primary" id="inferBtn" onclick="runInference()">
+        <span class="btn-bra">⟨ψ|</span>
+        استدلال طيفي
+        <span class="btn-ket">|ψ⟩</span>
+      </button>
+    </section>
+
+    <!-- ── رسم أصفار زيتا ── -->
+    <section class="card">
+      <div class="row-between card-label-row">
+        <label class="card-label">أصفار زيتا النشطة</label>
+        <button class="btn-ghost" onclick="openExpandZeros()">+ أضف أصفاراً</button>
+      </div>
+      <canvas id="zetaCanvas" class="canvas-chart"></canvas>
+    </section>
+
+    <!-- ── نتائج المسار ── -->
+    <section class="card" id="resultsSection" style="display:none">
+      <label class="card-label">نتائج المسار الطيفي</label>
+
+      <!-- طبقة 1 -->
+      <div class="layer-block">
+        <div class="layer-head">
+          <span class="layer-num">١</span>
+          <span class="layer-name">نص → أعداد أولية</span>
+        </div>
+        <div class="primes-row" id="inputPrimesRow">—</div>
+      </div>
+
+      <!-- طبقة 2 -->
+      <div class="layer-block">
+        <div class="layer-head">
+          <span class="layer-num">٢</span>
+          <span class="layer-name">قوة الرنين</span>
+        </div>
+        <div class="resonance-bars" id="resonanceBars"></div>
+        <div class="resonance-meta" id="resonanceMeta"></div>
+      </div>
+
+      <!-- رسم موجة الرنين -->
+      <canvas id="waveCanvas" class="canvas-wave"></canvas>
+      <div class="wave-legend">
+        <span class="dot green"></span><span>مُدخَل</span>
+        <span class="dot purple"></span><span>مستنتج</span>
+      </div>
+
+      <!-- طبقة 3 -->
+      <div class="layer-block">
+        <div class="layer-head">
+          <span class="layer-num">٣</span>
+          <span class="layer-name">الأعداد المستنتجة</span>
+        </div>
+        <div class="primes-row inferred" id="inferredPrimesRow">—</div>
+      </div>
+
+      <!-- طبقة 4 -->
+      <div class="layer-block output-layer">
+        <div class="layer-head">
+          <span class="layer-num">٤</span>
+          <span class="layer-name">النص الناتج</span>
+        </div>
+        <div class="output-text" id="outputText">—</div>
+        <button class="btn-secondary" onclick="copyOutput()" id="copyBtn">⧉ نسخ</button>
+      </div>
+    </section>
+
+    <!-- ── توسع الأعداد الأولية ── -->
+    <section class="card">
+      <div class="row-between card-label-row">
+        <label class="card-label">قاعدة الأعداد الأولية</label>
+        <button class="btn-ghost" onclick="openExpandPrimes()">↑ وسّع</button>
+      </div>
+      <div class="prime-status" id="primeStatus">
+        الحد الحالي: <span id="primeLimitDisplay">1000</span>
+      </div>
+    </section>
+
+    <!-- ── شريط الحالة ── -->
+    <div class="status-bar" id="statusBar">
+      جاهز · g = 10⁻⁶ · 30 صفر زيتا نشط
+    </div>
+
+  </main>
+
+  <!-- ── نافذة توسيع الأصفار ── -->
+  <div class="modal-overlay" id="expandZerosModal" style="display:none">
+    <div class="modal">
+      <div class="modal-header">
+        <span>إضافة أصفار زيتا</span>
+        <button class="modal-close" onclick="closeModal('expandZerosModal')">✕</button>
+      </div>
+      <p class="modal-hint">أدخل قيماً جديدة مفصولة بفواصل أو أسطر جديدة:</p>
+      <textarea
+        id="newZerosInput"
+        class="input-field"
+        rows="5"
+        placeholder="مثال:&#10;105.446623&#10;107.168611&#10;111.029535"
+        dir="ltr"
+      ></textarea>
+      <button class="btn-primary" onclick="submitExpandZeros()">إضافة</button>
+    </div>
+  </div>
+
+  <!-- ── نافذة توسيع الأعداد الأولية ── -->
+  <div class="modal-overlay" id="expandPrimesModal" style="display:none">
+    <div class="modal">
+      <div class="modal-header">
+        <span>توسيع قاعدة الأعداد الأولية</span>
+        <button class="modal-close" onclick="closeModal('expandPrimesModal')">✕</button>
+      </div>
+      <p class="modal-hint">أدخل الحد الأعلى الجديد (الحالي: <span id="currentLimitModal">1000</span>):</p>
+      <input
+        type="number"
+        id="newLimitInput"
+        class="input-field"
+        placeholder="مثال: 10000"
+        min="100"
+        max="1000000"
+        value="10000"
+        dir="ltr"
+      />
+      <button class="btn-primary" onclick="submitExpandPrimes()">توسيع</button>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+                                                                                 </html>
