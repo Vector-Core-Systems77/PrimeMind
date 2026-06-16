@@ -34,6 +34,16 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y libgtk-3-dev libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev
 
+      - name: توليد أيقونات وهمية
+        run: |
+          mkdir -p src-tauri/icons
+          printf '\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01\x08\x02\x00\x00\x00\x90wS\xde\x00\x00\x00\x0cIDATx\x9cc\xf8\x0f\x00\x00\x01\x01\x00\x05\x18\xd8N\x00\x00\x00\x00IEND\xaeB`\x82' > src-tauri/icons/32x32.png
+          cp src-tauri/icons/32x32.png src-tauri/icons/128x128.png
+          cp src-tauri/icons/32x32.png src-tauri/icons/128x128@2x.png
+          cp src-tauri/icons/32x32.png src-tauri/icons/icon.png
+          cp src-tauri/icons/32x32.png src-tauri/icons/icon.icns
+          cp src-tauri/icons/32x32.png src-tauri/icons/icon.ico
+
       - name: تشغيل الاختبارات
         working-directory: src-tauri
         run: cargo test --lib
@@ -50,11 +60,8 @@ jobs:
     timeout-minutes: 75
 
     steps:
-      # 1. استنساخ الكود
-      - name: استنساخ المستودع
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      # 2. إعداد Java 17 (مطلوب من Android SDK)
       - name: إعداد JDK 17
         uses: actions/setup-java@v4
         with:
@@ -62,7 +69,6 @@ jobs:
           distribution: 'temurin'
           cache: gradle
 
-      # 3. إعداد Android SDK
       - name: إعداد Android SDK
         uses: android-actions/setup-android@v3
         with:
@@ -73,13 +79,11 @@ jobs:
             ndk;27.0.12077973
             platform-tools
 
-      # 4. تعيين متغيرات NDK
       - name: تعيين ANDROID_NDK_HOME
         run: |
           echo "ANDROID_NDK_HOME=$ANDROID_SDK_ROOT/ndk/27.0.12077973" >> $GITHUB_ENV
           echo "NDK_HOME=$ANDROID_SDK_ROOT/ndk/27.0.12077973"         >> $GITHUB_ENV
 
-      # 5. تثبيت Rust مع أهداف أندرويد
       - name: تثبيت Rust وأهداف أندرويد
         uses: dtolnay/rust-toolchain@stable
         with:
@@ -89,43 +93,46 @@ jobs:
             x86_64-linux-android
             i686-linux-android
 
-      # 6. تخزين مؤقت لـ Cargo
       - name: تخزين مؤقت Cargo
         uses: Swatinem/rust-cache@v2
         with:
           workspaces: src-tauri
           cache-on-failure: true
 
-      # 7. إعداد Node.js
       - name: إعداد Node.js 20
         uses: actions/setup-node@v4
         with:
           node-version: '20'
           cache: 'npm'
 
-      # 8. تثبيت تبعيات Node
       - name: تثبيت تبعيات Node
         run: npm ci
 
-      # 9. تثبيت Tauri CLI v2
       - name: تثبيت Tauri CLI
         run: npm install -g @tauri-apps/cli@^2.2.0
 
-      # 10. تهيئة مشروع أندرويد
+      - name: توليد أيقونات وهمية
+        run: |
+          mkdir -p src-tauri/icons
+          printf '\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01\x08\x02\x00\x00\x00\x90wS\xde\x00\x00\x00\x0cIDATx\x9cc\xf8\x0f\x00\x00\x01\x01\x00\x05\x18\xd8N\x00\x00\x00\x00IEND\xaeB`\x82' > src-tauri/icons/32x32.png
+          cp src-tauri/icons/32x32.png src-tauri/icons/128x128.png
+          cp src-tauri/icons/32x32.png src-tauri/icons/128x128@2x.png
+          cp src-tauri/icons/32x32.png src-tauri/icons/icon.png
+          cp src-tauri/icons/32x32.png src-tauri/icons/icon.icns
+          cp src-tauri/icons/32x32.png src-tauri/icons/icon.ico
+
       - name: تهيئة مشروع Android
         run: tauri android init
         env:
           ANDROID_HOME:     ${{ env.ANDROID_SDK_ROOT }}
           ANDROID_NDK_HOME: ${{ env.ANDROID_NDK_HOME }}
 
-      # 11. بناء APK debug (لكل push)
       - name: بناء APK (debug)
         run: tauri android build --apk --debug
         env:
           ANDROID_HOME:     ${{ env.ANDROID_SDK_ROOT }}
           ANDROID_NDK_HOME: ${{ env.ANDROID_NDK_HOME }}
 
-      # 12. رفع APK debug كـ artifact
       - name: رفع debug APK
         uses: actions/upload-artifact@v4
         with:
@@ -134,7 +141,6 @@ jobs:
           retention-days: 14
           if-no-files-found: warn
 
-      # 13. بناء APK release (عند tags فقط)
       - name: بناء APK (release) — عند الإصدار فقط
         if: startsWith(github.ref, 'refs/tags/')
         run: tauri android build --apk
@@ -142,7 +148,6 @@ jobs:
           ANDROID_HOME:     ${{ env.ANDROID_SDK_ROOT }}
           ANDROID_NDK_HOME: ${{ env.ANDROID_NDK_HOME }}
 
-      # 14. رفع APK release كـ artifact
       - name: رفع release APK
         if: startsWith(github.ref, 'refs/tags/')
         uses: actions/upload-artifact@v4
@@ -151,7 +156,6 @@ jobs:
           path: src-tauri/gen/android/app/build/outputs/apk/release/*.apk
           retention-days: 90
 
-      # 15. إنشاء GitHub Release تلقائياً
       - name: إنشاء GitHub Release
         if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v2
