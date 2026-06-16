@@ -32,17 +32,17 @@ jobs:
       - name: تثبيت مكتبات النظام (Linux)
         run: |
           sudo apt-get update
-          sudo apt-get install -y libgtk-3-dev libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev
+          sudo apt-get install -y libgtk-3-dev libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev imagemagick
 
-      - name: توليد أيقونات وهمية
+      - name: إنشاء أيقونة PNG صالحة
         run: |
           mkdir -p src-tauri/icons
-          printf '\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01\x08\x02\x00\x00\x00\x90wS\xde\x00\x00\x00\x0cIDATx\x9cc\xf8\x0f\x00\x00\x01\x01\x00\x05\x18\xd8N\x00\x00\x00\x00IEND\xaeB`\x82' > src-tauri/icons/32x32.png
-          cp src-tauri/icons/32x32.png src-tauri/icons/128x128.png
-          cp src-tauri/icons/32x32.png src-tauri/icons/128x128@2x.png
-          cp src-tauri/icons/32x32.png src-tauri/icons/icon.png
-          cp src-tauri/icons/32x32.png src-tauri/icons/icon.icns
-          cp src-tauri/icons/32x32.png src-tauri/icons/icon.ico
+          convert -size 32x32 xc:blue -type TrueColorAlpha PNG32:src-tauri/icons/32x32.png
+          convert -size 128x128 xc:blue -type TrueColorAlpha PNG32:src-tauri/icons/128x128.png
+          convert -size 256x256 xc:blue -type TrueColorAlpha PNG32:src-tauri/icons/128x128@2x.png
+          convert -size 256x256 xc:blue -type TrueColorAlpha PNG32:src-tauri/icons/icon.png
+          cp src-tauri/icons/icon.png src-tauri/icons/icon.icns
+          cp src-tauri/icons/icon.png src-tauri/icons/icon.ico
 
       - name: تشغيل الاختبارات
         working-directory: src-tauri
@@ -72,6 +72,7 @@ jobs:
       - name: إعداد Android SDK
         uses: android-actions/setup-android@v3
         with:
+          accept-android-sdk-licenses: true
           cmdline-tools-version: '11076708'
           packages: |
             platforms;android-34
@@ -111,15 +112,20 @@ jobs:
       - name: تثبيت Tauri CLI
         run: npm install -g @tauri-apps/cli@^2.2.0
 
-      - name: توليد أيقونات وهمية
+      - name: تثبيت مكتبات النظام و imagemagick
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y imagemagick
+
+      - name: إنشاء أيقونة PNG صالحة
         run: |
           mkdir -p src-tauri/icons
-          printf '\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01\x08\x02\x00\x00\x00\x90wS\xde\x00\x00\x00\x0cIDATx\x9cc\xf8\x0f\x00\x00\x01\x01\x00\x05\x18\xd8N\x00\x00\x00\x00IEND\xaeB`\x82' > src-tauri/icons/32x32.png
-          cp src-tauri/icons/32x32.png src-tauri/icons/128x128.png
-          cp src-tauri/icons/32x32.png src-tauri/icons/128x128@2x.png
-          cp src-tauri/icons/32x32.png src-tauri/icons/icon.png
-          cp src-tauri/icons/32x32.png src-tauri/icons/icon.icns
-          cp src-tauri/icons/32x32.png src-tauri/icons/icon.ico
+          convert -size 32x32 xc:blue -type TrueColorAlpha PNG32:src-tauri/icons/32x32.png
+          convert -size 128x128 xc:blue -type TrueColorAlpha PNG32:src-tauri/icons/128x128.png
+          convert -size 256x256 xc:blue -type TrueColorAlpha PNG32:src-tauri/icons/128x128@2x.png
+          convert -size 256x256 xc:blue -type TrueColorAlpha PNG32:src-tauri/icons/icon.png
+          cp src-tauri/icons/icon.png src-tauri/icons/icon.icns
+          cp src-tauri/icons/icon.png src-tauri/icons/icon.ico
 
       - name: تهيئة مشروع Android
         run: tauri android init
