@@ -1,0 +1,172 @@
+name: Build Android APK — PrimeMind
+
+on:
+  push:
+    branches: [main, master]
+    tags:     ['v*']
+  pull_request:
+    branches: [main, master]
+  workflow_dispatch:
+
+env:
+  CARGO_TERM_COLOR: always
+  RUST_BACKTRACE:   1
+
+jobs:
+
+  # ── اختبارات Rust ─────────────────────────────────────────────────────────
+  test-rust:
+    name: اختبارات Rust
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: تثبيت Rust Stable
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: تخزين مؤقت Cargo
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+
+      - name: تشغيل الاختبارات
+        working-directory: src-tauri
+        run: cargo test --lib
+
+      - name: فحص Clippy
+        working-directory: src-tauri
+        run: cargo clippy -- -D warnings
+
+  # ── بناء APK أندرويد ───────────────────────────────────────────────────────
+  build-android:
+    name: بناء Android APK
+    runs-on: ubuntu-22.04
+    needs: test-rust
+    timeout-minutes: 75
+
+    steps:
+      # 1. استنساخ الكود
+      - name: استنساخ المستودع
+        uses: actions/checkout@v4
+
+      # 2. إعداد Java 17 (مطلوب من Android SDK)
+      - name: إعداد JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+          cache: gradle
+
+      # 3. إعداد Android SDK
+      - name: إعداد Android SDK
+        uses: android-actions/setup-android@v3
+        with:
+          cmdline-tools-version: '11076708'
+          packages: |
+            platforms;android-34
+            build-tools;34.0.0
+            ndk;27.0.12077973
+            platform-tools
+
+      # 4. تعيين متغيرات NDK
+      - name: تعيين ANDROID_NDK_HOME
+        run: |
+          echo "ANDROID_NDK_HOME=$ANDROID_SDK_ROOT/ndk/27.0.12077973" >> $GITHUB_ENV
+          echo "NDK_HOME=$ANDROID_SDK_ROOT/ndk/27.0.12077973"         >> $GITHUB_ENV
+
+      # 5. تثبيت Rust مع أهداف أندرويد
+      - name: تثبيت Rust وأهداف أندرويد
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: |
+            aarch64-linux-android
+            armv7-linux-androideabi
+            x86_64-linux-android
+            i686-linux-android
+
+      # 6. تخزين مؤقت لـ Cargo
+      - name: تخزين مؤقت Cargo
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+          cache-on-failure: true
+
+      # 7. إعداد Node.js
+      - name: إعداد Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      # 8. تثبيت تبعيات Node
+      - name: تثبيت تبعيات Node
+        run: npm ci
+
+      # 9. تثبيت Tauri CLI v2
+      - name: تثبيت Tauri CLI
+        run: npm install -g @tauri-apps/cli@^2.2.0
+
+      # 10. تهيئة مشروع أندرويد
+      - name: تهيئة مشروع Android
+        run: tauri android init
+        env:
+          ANDROID_HOME:     ${{ env.ANDROID_SDK_ROOT }}
+          ANDROID_NDK_HOME: ${{ env.ANDROID_NDK_HOME }}
+
+      # 11. بناء APK debug (لكل push)
+      - name: بناء APK (debug)
+        run: tauri android build --apk --debug
+        env:
+          ANDROID_HOME:     ${{ env.ANDROID_SDK_ROOT }}
+          ANDROID_NDK_HOME: ${{ env.ANDROID_NDK_HOME }}
+
+      # 12. رفع APK debug كـ artifact
+      - name: رفع debug APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: PrimeMind-debug-${{ github.sha }}
+          path: src-tauri/gen/android/app/build/outputs/apk/debug/*.apk
+          retention-days: 14
+          if-no-files-found: warn
+
+      # 13. بناء APK release (عند tags فقط)
+      - name: بناء APK (release) — عند الإصدار فقط
+        if: startsWith(github.ref, 'refs/tags/')
+        run: tauri android build --apk
+        env:
+          ANDROID_HOME:     ${{ env.ANDROID_SDK_ROOT }}
+          ANDROID_NDK_HOME: ${{ env.ANDROID_NDK_HOME }}
+
+      # 14. رفع APK release كـ artifact
+      - name: رفع release APK
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: actions/upload-artifact@v4
+        with:
+          name: PrimeMind-release-${{ github.ref_name }}
+          path: src-tauri/gen/android/app/build/outputs/apk/release/*.apk
+          retention-days: 90
+
+      # 15. إنشاء GitHub Release تلقائياً
+      - name: إنشاء GitHub Release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          name: PrimeMind ${{ github.ref_name }}
+          body: |
+            ## PrimeMind ${{ github.ref_name }}
+            محرك الاستدلال الطيفي — بناء تلقائي.
+
+            ### التثبيت
+            1. حمّل ملف `PrimeMind-release.apk`
+            2. فعّل "مصادر غير معروفة" في إعدادات أندرويد
+            3. ثبّت التطبيق وشغّله
+
+            ### المعادلة
+            ```
+            Ĥ = Σ γₙ|n⟩⟨n| + g Σ (log p)/p^(½+iγ̂) |p⟩⟨γ̂| + h.c.
+            ```
+          files: src-tauri/gen/android/app/build/outputs/apk/release/*.apk
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
