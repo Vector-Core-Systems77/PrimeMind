@@ -98,10 +98,9 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '20'
-          cache: 'npm'
 
       - name: تثبيت تبعيات Node
-        run: npm ci
+        run: npm install
 
       - name: تثبيت Tauri CLI
         run: npm install -g @tauri-apps/cli@^2.2.0
